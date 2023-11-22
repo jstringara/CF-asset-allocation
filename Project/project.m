@@ -286,3 +286,4 @@ figure()
 idx_BL = wtsBL > 0.001;
 pie(wtsBL(idx_BL), names_assets(idx_BL)); % A little messy, to adjust
 title(portBL.Name, 'Position', [-0.05, 1.6, 0]);
+
