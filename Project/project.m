@@ -19,6 +19,7 @@ dates = table_prices(:, 1).Variables; % dates
 values = table_prices(:, 2:end).Variables; % prices
 names_assets = table_prices.Properties.VariableNames(2:end); % names of assets
 N_assets = size(values, 2);
+N_portfolios = 100; % number of portfolios to simulate
 timetable_prices = array2timetable(values, 'RowTimes', dates, 'VariableNames', names_assets);
 
 %% Part A
@@ -29,26 +30,33 @@ dates_range = timerange(start_date, end_date, "closed"); % range of dates
 subsample = timetable_prices(dates_range, :);
 array_assets = subsample.Variables; % array of prices
 LogRet_array = log(array_assets(2:end, :)./array_assets(1:end-1, :)); % array of log returns
-
+ExpLogRet = mean(LogRet_array); % expected log returns
+CovMatRet = cov(LogRet_array); % covariance matrix of log returns
 
 %% 1
 % Compute the efficient frontier under the standard constraints, i.e. 
 
 %% Compute the efficient frontier
-p = Portfolio('AssetList', names_assets); % create portfolio object
-p = estimateAssetMoments(p, LogRet_array, "MissingData", false); % estimate moments
+
+pStandard = Portfolio('AssetList', names_assets); % create portfolio object
+pStandard = setAssetMoments(pStandard, ExpLogRet, CovMatRet); % set moments of the portfolio
 
 % use standard constraints: sum(w) = 1, 0 <= w_i <= 1
 % all weights sum  to 1, no shorting, 100% invested
-p = setDefaultConstraints(p);
-p = setBounds(p, zeros(N_assets, 1), ones(N_assets, 1));
+pStandard = setDefaultConstraints(pStandard);
+pStandard = setBounds(pStandard, zeros(N_assets, 1), ones(N_assets, 1));
 
-pwgt = estimateFrontier(p, 100); % estimate frontier using 100 points
+pwgt = estimateFrontier(pStandard, N_portfolios); % estimate frontier using 100 points
 
-[pf_risk, pf_ret] = estimatePortMoments(p, pwgt); % estimate moments of the frontier
+[pf_risk, pf_ret] = estimatePortMoments(pStandard, pwgt); % estimate moments of the frontier
+
+%% Plot efficient frontier
+
 figure % create new figure
-plot(pf_risk, pf_ret, 'LineWidth', 2); % plot frontier
+hold on
 plot_legend = legend('Location', 'best'); % add legend and keep its handle
+
+plot(pf_risk, pf_ret, 'LineWidth', 2); % plot frontier
 % add the frontier to the legend
 plot_legend.String{end} = "Efficient Frontier (Standard Constraints)";
 
@@ -59,7 +67,6 @@ plot_legend.String{end} = "Efficient Frontier (Standard Constraints)";
 portfolioA = pwgt(min_var_idx, :); % weights of the minimum variance portfolio
 
 % plot minimum variance portfolio
-hold on
 plot(pf_risk(min_var_idx), pf_ret(min_var_idx), 'r.', 'MarkerSize', 10);
 plot_legend.String{end} = "Minimum Variance Portfolio";
 
@@ -74,25 +81,17 @@ plot_legend.String{end} = "Maximum Sharpe Ratio Portfolio";
 
 %% 2 Efficient frontier with sector constraints
 
-% create portfolio object
-p = Portfolio('AssetList', names_assets);
-p = estimateAssetMoments(p, LogRet_array, "MissingData", false); % estimate moments
-
-% set default constraints
-p = setDefaultConstraints(p);
-p = setBounds(p, zeros(N_assets, 1), ones(N_assets, 1));
-
 % set sector constraints
 
 % overall exposure to sector 'Consumer Discretionary' must be greater than 15%
 groupMatrix_CD = (table_sector.Sector == "Consumer Discretionary")';
 exposure_CD = 0.15;
-p = addGroups(p, groupMatrix_CD, exposure_CD);
+pConstrained = addGroups(pStandard, groupMatrix_CD, exposure_CD);
 
 % overall exposure to sector 'Industrials' must be lower than 5%
 groupMatrix_Ind = (table_sector.Sector == "Industrials")';
 exposure_Ind = 0.05;
-p = addGroups(p, groupMatrix_Ind, [], exposure_Ind);
+pConstrained = addGroups(pConstrained, groupMatrix_Ind, [], exposure_Ind);
 
 % weights of sector with less than 5 stocks must be zero
 groupCounts_Sector = groupcounts(table_sector, "Sector");
@@ -102,11 +101,11 @@ small_sectors = (ismember(table_sector.Sector, small_sectors.Sector));
 groupMatrix_Small = eye(N_assets);
 groupMatrix_Small = groupMatrix_Small(small_sectors, :);
 
-p = addGroups(p, groupMatrix_Small, 0, 0);
+pConstrained = addGroups(pConstrained, groupMatrix_Small, 0, 0);
 
 %% Compute the efficient frontier
-pwgt_Constrained = estimateFrontier(p, 100); % estimate frontier using 100 points
-[pf_risk_Constrained, pf_ret_Constrained] = estimatePortMoments(p, pwgt_Constrained); % estimate moments of the frontier
+pwgt_Constrained = estimateFrontier(pConstrained, N_portfolios); % estimate frontier using 100 points
+[pf_risk_Constrained, pf_ret_Constrained] = estimatePortMoments(pConstrained, pwgt_Constrained); % estimate moments of the frontier
 
 %% Plot efficient frontier
 plot(pf_risk_Constrained, pf_ret_Constrained, 'LineWidth', 2); % plot frontier
@@ -129,3 +128,86 @@ portfolioD = pwgt_Constrained(max_sharpe_idx_Constrained, :); % weights of the m
 % plot maximum Sharpe Ratio portfolio
 plot(pf_risk_Constrained(max_sharpe_idx_Constrained), pf_ret_Constrained(max_sharpe_idx_Constrained), 'g.', 'MarkerSize', 10);
 plot_legend.String{end} = "Maximum Sharpe Ratio Portfolio";
+
+%% 3 Frontiers with resampling method
+
+N_sim = 50; % number of simulations
+
+% save the simulation results
+pf_risk_sim_standard = zeros(N_portfolios, N_sim);
+pf_ret_sim_standard = zeros(N_portfolios, N_sim);
+pf_risk_sim_constrained = zeros(N_portfolios, N_sim);
+pf_ret_sim_constrained = zeros(N_portfolios, N_sim);
+
+% simulation loop
+for n = 1:N_sim
+    % sample returns as multivariate normal of mean and covariance of the
+    % sample
+    R = mvnrnd(ExpLogRet, CovMatRet, length(LogRet_array));
+    % create portfolio objects
+    pSimulationStandard = setAssetMoments(pStandard, mean(R), cov(R));
+    pSimulationConstrained = setAssetMoments(pConstrained, mean(R), cov(R));
+    % estimate frontiers
+    pwgt_SimulationStandard = estimateFrontier(pSimulationStandard, N_portfolios);
+    pwgt_SimulationConstrained = estimateFrontier(pSimulationConstrained, N_portfolios);
+    % estimate moments of the frontiers and save
+    [pf_risk_sim_standard(:, n), pf_ret_sim_standard(:, n)] = ...
+        estimatePortMoments(pSimulationStandard, pwgt_SimulationStandard);
+    [pf_risk_sim_constrained(:, n), pf_ret_sim_constrained(:, n)] = ...
+        estimatePortMoments(pSimulationConstrained, pwgt_SimulationConstrained);
+end
+
+%% Compute the robust efficient frontier
+
+% the efficient frontier is the mean of the simulated frontiers
+robustFrontier_risk_standard = mean(pf_risk_sim_standard, 2);
+robustFrontier_ret_standard = mean(pf_ret_sim_standard, 2);
+
+robustFrontier_risk_constrained = mean(pf_risk_sim_constrained, 2);
+robustFrontier_ret_constrained = mean(pf_ret_sim_constrained, 2);
+
+%% Plot robust efficient frontier
+
+%figure % create new figure
+hold on
+plot_legend = legend('Location', 'best'); % add legend and keep its handle
+
+plot(robustFrontier_risk_standard, robustFrontier_ret_standard, 'LineWidth', 2); % plot frontier
+plot_legend.String{end} = "Robust Efficient Frontier (Standard Constraints)";
+
+plot(robustFrontier_risk_constrained, robustFrontier_ret_constrained, 'LineWidth', 2); % plot frontier
+plot_legend.String{end} = "Robust Efficient Frontier (Sector Constraints)";
+
+%% Minimum variance portfolios of the robust efficient frontiers
+
+% find minimum variance portfolio
+[~, min_var_idx_robust_standard] = min(robustFrontier_risk_standard);
+portfolioE = pwgt_SimulationStandard(min_var_idx_robust_standard, :); % weights of the minimum variance portfolio
+
+% plot minimum variance portfolio
+plot(robustFrontier_risk_standard(min_var_idx_robust_standard), robustFrontier_ret_standard(min_var_idx_robust_standard), 'r.', 'MarkerSize', 10);
+plot_legend.String{end} = "Robust Minimum Variance Portfolio (Standard Constraints)";
+
+% find minimum variance portfolio
+[~, min_var_idx_robust_constrained] = min(robustFrontier_risk_constrained);
+portfolioF = pwgt_SimulationConstrained(min_var_idx_robust_constrained, :); % weights of the minimum variance portfolio
+
+% plot minimum variance portfolio
+plot(robustFrontier_risk_constrained(min_var_idx_robust_constrained), robustFrontier_ret_constrained(min_var_idx_robust_constrained), 'r.', 'MarkerSize', 10);
+plot_legend.String{end} = "Robust Minimum Variance Portfolio (Sector Constraints)";
+
+%% Maximum Sharpe Ratio portfolios of the robust efficient frontiers
+
+[~, max_sharpe_idx_robust_standard] = max(robustFrontier_ret_standard./robustFrontier_risk_standard);
+portfolioG = pwgt_SimulationStandard(max_sharpe_idx_robust_standard, :); % weights of the maximum Sharpe Ratio portfolio
+
+% plot maximum Sharpe Ratio portfolio
+plot(robustFrontier_risk_standard(max_sharpe_idx_robust_standard), robustFrontier_ret_standard(max_sharpe_idx_robust_standard), 'g.', 'MarkerSize', 10);
+plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Standard Constraints)";
+
+[~, max_sharpe_idx_robust_constrained] = max(robustFrontier_ret_constrained./robustFrontier_risk_constrained);
+portfolioH = pwgt_SimulationConstrained(max_sharpe_idx_robust_constrained, :); % weights of the maximum Sharpe Ratio portfolio
+
+% plot maximum Sharpe Ratio portfolio
+plot(robustFrontier_risk_constrained(max_sharpe_idx_robust_constrained), robustFrontier_ret_constrained(max_sharpe_idx_robust_constrained), 'g.', 'MarkerSize', 10);
+plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Sector Constraints)";
