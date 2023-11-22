@@ -13,6 +13,7 @@ warning('off', 'all');
 data_dir = "data/";
 table_prices = readtable(data_dir + "prices_fin.xlsx");
 table_sector = readtable(data_dir + "sectors_fin.xlsx", "TextType", "string");
+table_cap = readtable(data_dir + "market_cap_fin.xlsx", "TextType", "string");
 
 %% Transform data from tables to timetables
 dates = table_prices(:, 1).Variables; % dates
@@ -211,3 +212,34 @@ portfolioH = pwgt_SimulationConstrained(max_sharpe_idx_robust_constrained, :); %
 % plot maximum Sharpe Ratio portfolio
 plot(robustFrontier_risk_constrained(max_sharpe_idx_robust_constrained), robustFrontier_ret_constrained(max_sharpe_idx_robust_constrained), 'g.', 'MarkerSize', 10);
 plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Sector Constraints)";
+
+%% Black Litterman Constraints
+%Calculate returns and Covariance Matrix
+Ret = tick2ret(array_assets);
+CovMatrix = cov(Ret);
+
+%Building the views
+tau = 1 / length(Ret);
+v = 3; %total 3 views v = num views
+P = zeros(v, N_assets);
+PP = zeros(v, N_assets);
+q = zeros(v,1);
+Omega = zeros(v);
+
+%View1: companies belonging to the sector "Consumer Staples” will have an annual return of 7%
+P(1, (table_sector.Sector == "Consumer Staples")') = 1;
+q(1) = 0.07;
+
+%View2: companies belonging to the sector “Healthcare” will have anannual return of 3%
+P(2,(table_sector.Sector == "Health Care")') = 1;
+q(2) = 0.03;
+
+%View3: companies belonging to the sector "Communication Services" will outperform the companies belonging to the sector “Utilities” of 4%
+P(3, (table_sector.Sector == "Communication Services")') = 1;
+P(3, (table_sector.Sector == "Utilities")') = -1;
+q(3) = 0.04;
+
+%Compute Omega
+Omega(1,1) = tau.*P(1,:)*CovMatrix*P(1,:)';
+Omega(2,2) = tau.*P(2,:)*CovMatrix*P(2,:)';
+Omega(3,3) = tau.*P(3,:)*CovMatrix*P(3,:)';
