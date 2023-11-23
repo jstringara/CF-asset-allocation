@@ -66,7 +66,7 @@ plot_legend.String{end} = "Efficient Frontier (Standard Constraints)";
 %% Minimum variance portfolio
 % find minimum variance portfolio
 [~, min_var_idx] = min(pf_risk);
-portfolioA = pwgt(min_var_idx, :); % weights of the minimum variance portfolio
+portfolioA = pwgt(:,min_var_idx); % weights of the minimum variance portfolio
 
 % plot minimum variance portfolio
 plot(pf_risk(min_var_idx), pf_ret(min_var_idx), 'r.', 'MarkerSize', 10);
@@ -75,7 +75,7 @@ plot_legend.String{end} = "Minimum Variance Portfolio";
 %% Maximum Sharpe Ratio portfolio
 % find maximum Sharpe Ratio portfolio
 [~, max_sharpe_idx] = max(pf_ret./pf_risk);
-portfolioB = pwgt(max_sharpe_idx, :); % weights of the maximum Sharpe Ratio portfolio
+portfolioB = pwgt(:,max_sharpe_idx); % weights of the maximum Sharpe Ratio portfolio
 
 % plot maximum Sharpe Ratio portfolio
 plot(pf_risk(max_sharpe_idx), pf_ret(max_sharpe_idx), 'g.', 'MarkerSize', 10);
@@ -116,7 +116,7 @@ plot_legend.String{end} = "Efficient Frontier (Sector Constraints)";
 %% Minimum variance portfolio
 % find minimum variance portfolio
 [~, min_var_idx_Constrained] = min(pf_risk_Constrained);
-portfolioC = pwgt_Constrained(min_var_idx_Constrained, :); % weights of the minimum variance portfolio
+portfolioC = pwgt_Constrained(:,min_var_idx_Constrained); % weights of the minimum variance portfolio
 
 % plot minimum variance portfolio
 plot(pf_risk_Constrained(min_var_idx_Constrained), pf_ret_Constrained(min_var_idx_Constrained), 'r.', 'MarkerSize', 10);
@@ -125,7 +125,7 @@ plot_legend.String{end} = "Minimum Variance Portfolio";
 %% Maximum Sharpe Ratio portfolio
 % find maximum Sharpe Ratio portfolio
 [~, max_sharpe_idx_Constrained] = max(pf_ret_Constrained./pf_risk_Constrained);
-portfolioD = pwgt_Constrained(max_sharpe_idx_Constrained, :); % weights of the maximum Sharpe Ratio portfolio
+portfolioD = pwgt_Constrained(:, max_sharpe_idx_Constrained); % weights of the maximum Sharpe Ratio portfolio
 
 % plot maximum Sharpe Ratio portfolio
 plot(pf_risk_Constrained(max_sharpe_idx_Constrained), pf_ret_Constrained(max_sharpe_idx_Constrained), 'g.', 'MarkerSize', 10);
@@ -184,7 +184,7 @@ plot_legend.String{end} = "Robust Efficient Frontier (Sector Constraints)";
 
 % find minimum variance portfolio
 [~, min_var_idx_robust_standard] = min(robustFrontier_risk_standard);
-portfolioE = pwgt_SimulationStandard(min_var_idx_robust_standard, :); % weights of the minimum variance portfolio
+portfolioE = pwgt_SimulationStandard(:,min_var_idx_robust_standard); % weights of the minimum variance portfolio
 
 % plot minimum variance portfolio
 plot(robustFrontier_risk_standard(min_var_idx_robust_standard), robustFrontier_ret_standard(min_var_idx_robust_standard), 'r.', 'MarkerSize', 10);
@@ -192,7 +192,7 @@ plot_legend.String{end} = "Robust Minimum Variance Portfolio (Standard Constrain
 
 % find minimum variance portfolio
 [~, min_var_idx_robust_constrained] = min(robustFrontier_risk_constrained);
-portfolioF = pwgt_SimulationConstrained(min_var_idx_robust_constrained, :); % weights of the minimum variance portfolio
+portfolioF = pwgt_SimulationConstrained(:,min_var_idx_robust_constrained); % weights of the minimum variance portfolio
 
 % plot minimum variance portfolio
 plot(robustFrontier_risk_constrained(min_var_idx_robust_constrained), robustFrontier_ret_constrained(min_var_idx_robust_constrained), 'r.', 'MarkerSize', 10);
@@ -201,14 +201,14 @@ plot_legend.String{end} = "Robust Minimum Variance Portfolio (Sector Constraints
 %% Maximum Sharpe Ratio portfolios of the robust efficient frontiers
 
 [~, max_sharpe_idx_robust_standard] = max(robustFrontier_ret_standard./robustFrontier_risk_standard);
-portfolioG = pwgt_SimulationStandard(max_sharpe_idx_robust_standard, :); % weights of the maximum Sharpe Ratio portfolio
+portfolioG = pwgt_SimulationStandard(:,max_sharpe_idx_robust_standard); % weights of the maximum Sharpe Ratio portfolio
 
 % plot maximum Sharpe Ratio portfolio
 plot(robustFrontier_risk_standard(max_sharpe_idx_robust_standard), robustFrontier_ret_standard(max_sharpe_idx_robust_standard), 'g.', 'MarkerSize', 10);
 plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Standard Constraints)";
 
 [~, max_sharpe_idx_robust_constrained] = max(robustFrontier_ret_constrained./robustFrontier_risk_constrained);
-portfolioH = pwgt_SimulationConstrained(max_sharpe_idx_robust_constrained, :); % weights of the maximum Sharpe Ratio portfolio
+portfolioH = pwgt_SimulationConstrained(:,max_sharpe_idx_robust_constrained); % weights of the maximum Sharpe Ratio portfolio
 
 % plot maximum Sharpe Ratio portfolio
 plot(robustFrontier_risk_constrained(max_sharpe_idx_robust_constrained), robustFrontier_ret_constrained(max_sharpe_idx_robust_constrained), 'g.', 'MarkerSize', 10);
@@ -223,7 +223,6 @@ CovMatrix = cov(Ret);
 tau = 1 / length(Ret);
 v = 3; %total 3 views v = num views
 P = zeros(v, N_assets);
-%PP = zeros(v, N_assets); What's for?
 q = zeros(v,1);
 Omega = zeros(v);
 
