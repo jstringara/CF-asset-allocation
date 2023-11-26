@@ -285,4 +285,44 @@ figure()
 idx_BL = wtsBL > 0.001;
 pie(wtsBL(idx_BL), names_assets(idx_BL)); % A little messy, to adjust
 title(portBL.Name, 'Position', [-0.05, 1.6, 0]);
+%% Exercice 5: Mx diversified ptf & max entropy
+
+% set sector constraints
+
+% overall exposure to sector 'Consumer Discretionary' must be greater than 15%
+groupMatrix_F = (table_sector.Sector == "Financials")';
+groupMatrix_I = (table_sector.Sector == "Industrials")';
+lowerbounds = 0.001*groupMatrix_F + 0.005*groupMatrix_I;
+upperbounds = ones(length(101))-0.98*groupMatrix_F-0.99*groupMatrix_I;
+pConstrained2 = setBounds(pStandard,lowerbounds, upperbounds);
+
+%% Compute the efficient frontier
+pwgt_Constrained2 = estimateFrontier(pConstrained2, N_portfolios); % estimate frontier using 100 points
+[pf_risk_Constrained2, pf_ret_Constrained2] = estimatePortMoments(pConstrained2, pwgt_Constrained2);% estimate moments of the frontier
+
+%% Plot efficient frontier
+figure;
+plot(pf_risk_Constrained2, pf_ret_Constrained2, 'LineWidth', 2); % plot frontier
+plot_legend.String{end} = "Efficient Frontier (Sector Constraints)";
+
+%% Maximum Diversified portfolio
+% find maximum Sharpe Ratio portfolio
+[~, max_div_idx] = max(pf_ret_Constrained2./pf_risk_Constrained2);
+portfolioM = pwgt(:,max_div_idx); % weights of the maximum Sharpe Ratio portfolio
+
+% plot maximum Sharpe Ratio portfolio
+plot(pf_risk_Constrained2(max_div_idx), pf_ret_Constrained2(max_div_idx), 'g.', 'MarkerSize', 10);
+plot_legend.String{end} = "Maximum Diversified Portfolio";
+
+%% Maximum Entropy portfolio
+Entropy = zeros(101);
+for n = 1:101
+end
+
+[~, max_H_idx] = max(-sum());
+portfolioM = pwgt(max_H_idx, :); % weights of the maximum Sharpe Ratio portfolio
+
+% plot maximum Sharpe Ratio portfolio
+plot(pf_risk_Constrained2(max_H_idx), pf_ret_Constrained2(max_H_idx), 'g.', 'MarkerSize', 10);
+plot_legend.String{end} = "Maximum Diversified Portfolio";
 
