@@ -288,10 +288,9 @@ title(portBL.Name, 'Position', [-0.05, 1.6, 0]);
 %% Exercice 5: Mx diversified ptf & max entropy
 
 % set sector constraints
-
 % overall exposure to sector 'Consumer Discretionary' must be greater than 15%
-groupMatrix_F = (table_sector.Sector == "Financials")';
-groupMatrix_I = (table_sector.Sector == "Industrials")';
+groupMatrix_F = (table_sector.Sector == "Financials")'; % estraggo il gruppo Financials 
+groupMatrix_I = (table_sector.Sector == "Industrials")'; % estraggo il gruppo Industrials
 lowerbounds = 0.001*groupMatrix_F + 0.005*groupMatrix_I;
 upperbounds = ones(length(101))-0.98*groupMatrix_F-0.99*groupMatrix_I;
 pConstrained2 = setBounds(pStandard,lowerbounds, upperbounds);
