@@ -406,3 +406,28 @@ beq = 1;
 
 nonlcon = @(x) freval(x,factorLoading,covarFactor,D);
 [w_opt, fval] = fmincon(func, x0, [], [], Aeq, beq, lb, ub,nonlcon, options);
+
+%% 7 Maximum Expected Shortfall - modified Sharpe Ratio
+
+% Compute the VaR and ES of the assets
+
+% ES computed with risk_free_rate = 0 and confidence_level = 0.05
+fun = @(x) -modified_Sharpe(x, LogRet_array, 0, 0.05);
+x0 = rand(size(LogRet_array,2),1);
+x0 = x0./sum(x0);
+lb = zeros(1,size(LogRet_array,2));
+ub = ones(1,size(LogRet_array,2));
+Aeq = ones(1,size(LogRet_array,2));
+beq = 1;
+
+[portfolioQ, fval] = fmincon(fun, x0, [], [], Aeq, beq, lb, ub);
+
+%% Plot the efficient frontier
+
+figure
+plot(pf_risk, pf_ret, 'LineWidth', 2); % plot frontier
+hold on
+% plot the max modified sharpe ratio portfolio at 5% confidence level
+pf_risk_opt = sqrt(portfolioQ'*CovMatRet*portfolioQ);
+pf_ret_opt = ExpLogRet*portfolioQ;
+plot(pf_risk_opt, pf_ret_opt, 'r.', 'MarkerSize', 10);
