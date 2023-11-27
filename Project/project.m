@@ -295,33 +295,114 @@ lowerbounds = 0.001*groupMatrix_F + 0.005*groupMatrix_I;
 upperbounds = ones(length(101))-0.98*groupMatrix_F-0.99*groupMatrix_I;
 pConstrained2 = setBounds(pStandard,lowerbounds, upperbounds);
 
-%% Compute the efficient frontier
-pwgt_Constrained2 = estimateFrontier(pConstrained2, N_portfolios); % estimate frontier using 100 points
-[pf_risk_Constrained2, pf_ret_Constrained2] = estimatePortMoments(pConstrained2, pwgt_Constrained2);% estimate moments of the frontier
+% %% Compute the efficient frontier
+% pwgt_Constrained2 = estimateFrontier(pConstrained2, N_portfolios); % estimate frontier using 100 points
+% [pf_risk_Constrained2, pf_ret_Constrained2] = estimatePortMoments(pConstrained2, pwgt_Constrained2);% estimate moments of the frontier
 
-%% Plot efficient frontier
-figure;
-plot(pf_risk_Constrained2, pf_ret_Constrained2, 'LineWidth', 2); % plot frontier
-plot_legend.String{end} = "Efficient Frontier (Sector Constraints)";
+% %% Plot efficient frontier
+% figure;
+% plot(pf_risk_Constrained2, pf_ret_Constrained2, 'LineWidth', 2); % plot frontier
+% plot_legend.String{end} = "Efficient Frontier (Sector Constraints)";
 
-%% Maximum Diversified portfolio
-% find maximum Sharpe Ratio portfolio
-[~, max_div_idx] = max(pf_ret_Constrained2./pf_risk_Constrained2);
-portfolioM = pwgt(:,max_div_idx); % weights of the maximum Sharpe Ratio portfolio
+%% Equally Weighted Ptf
 
-% plot maximum Sharpe Ratio portfolio
-plot(pf_risk_Constrained2(max_div_idx), pf_ret_Constrained2(max_div_idx), 'g.', 'MarkerSize', 10);
-plot_legend.String{end} = "Maximum Diversified Portfolio";
+wEW = 1/size(LogRet_array,2)*ones(N_assets,1);
+RetPtfEW = wEW'*ExpLogRet';
+VolaPtfEW = sqrt(wEW'*CovMatrix*wEW);
 
+%%  Risk Parity
+Target = wEW;
+Aeq = ones(1,N_assets);
+beq = 1;
+lb = lowerbounds;
+ub = upperbounds;
+x0 = zeros(N_assets,1);
+x0(1,1) = 1;
+options = optimoptions('fmincon','MaxFunctionEvaluations',1e5);
+w_RP = fmincon(@(x) mse_risk_contribution(x, LogRet_array, Target), x0, [], [], Aeq, beq, lb, ub, [], options);
+[relRC_rp, RC_rp, mVol_rp] = getRiskContribution(w_RP, LogRet_array);
+
+%% Most Diversified portfolio
+DR_ew = getDiversificationRatio(wEW, LogRet_array);
+DR_rp = getDiversificationRatio(w_RP, LogRet_array);
+%%  Maximizing of DR
+Aeq = ones(1,N_assets);
+beq = 1;
+lb = lowerbounds;
+ub = upperbounds;
+x0 = zeros(N_assets,1);
+x0(1,1) = 1;
+
+[w_DR, fval] = fmincon(@(x) -getDiversificationRatio(x, LogRet_array), x0, [], [], Aeq, beq, lb, ub, [], options);
+MaxDR = -fval; 
+portfolioM = w_DR > 1e-3; % Chiedere all'Angelini se possiamo farlo
+portfolioM = portfolioM .* w_DR;
 %% Maximum Entropy portfolio
-Entropy = zeros(101);
-for n = 1:101
+% Weights
+EntropyEW = getEntropy(wEW);
+EntropyRP = getEntropy(w_RP);
+EntropyDR = getEntropy(w_DR);
+
+%% Optimization
+Aeq = ones(1,N_assets);
+beq = 1;
+lb = lowerbounds;
+ub = upperbounds;
+x0 = zeros(N_assets,1);
+x0(1,1) = 1;
+w_MaxEntropy = fmincon(@(x) -getEntropy(x), x0, [], [], Aeq, beq, lb, ub, [], options);
+portfolioN = fmincon(@(x) -getEntropy(getVolContribution(x,LogRet_array)), x0, [], [], Aeq, beq, lb, ub, [], options);
+
+%% PCA
+k = 10; 
+[factorLoading, factorRetn, latent] = pca(LogRet_array, 'NumComponents', k);
+
+ToTVar = sum(latent);
+ExplainedVar = latent(1:k)/ToTVar;
+
+n_list = [1,2,3,4,5,6,7,8,9,10];
+CumExplainedVar = zeros(1, size(n_list, 2));
+
+for i = 1:size(n_list, 2)
+    n = n_list(i);
+    CumExplainedVar(1, i) = getCumulativeExplainedVar(latent, n);
 end
 
-[~, max_H_idx] = max(-sum());
-portfolioM = pwgt(max_H_idx, :); % weights of the maximum Sharpe Ratio portfolio
+%% 
+figure;
+title('Percentage of Explained Variances for each principal component')
+bar(n_list, ExplainedVar)
+xlabel('Principal Component')
+ylabel('Percentage of Explained Variances')
 
-% plot maximum Sharpe Ratio portfolio
-plot(pf_risk_Constrained2(max_H_idx), pf_ret_Constrained2(max_H_idx), 'g.', 'MarkerSize', 10);
-plot_legend.String{end} = "Maximum Diversified Portfolio";
+figure;
+title('Total Percentage of Explained Variances for the first n-components')
+plot(n_list, CumExplainedVar, 'm')
+hold on
+scatter(n_list, CumExplainedVar, 'm', 'filled')
+grid on
+xlabel('Total Number of Principal Components')
+ylabel('Percentage of Explained Variances')
 
+%% 
+%reconstruct asset returns
+covarFactor = cov(factorRetn);
+reconReturn = factorRetn*factorLoading' + ExpLogRet;
+unexplainedRetn = LogRet_array-reconReturn;
+
+unexplainedCovar = diag(cov(unexplainedRetn));
+D = diag(unexplainedCovar);
+
+covarAsset = factorLoading*covarFactor*factorLoading'+D;
+%% Optimization return
+func = @(x) -ExpLogRet*x;
+
+x0 = rand(size(LogRet_array,2),1);
+x0 = x0./sum(x0);
+lb = zeros(1,size(LogRet_array,2));
+ub = ones(1,size(LogRet_array,2));
+Aeq = ones(1,size(LogRet_array,2));
+beq = 1;
+
+nonlcon = @(x) freval(x,factorLoading,covarFactor,D);
+[w_opt, fval] = fmincon(func, x0, [], [], Aeq, beq, lb, ub,nonlcon, options);
