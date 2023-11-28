@@ -216,7 +216,7 @@ plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Sector Constra
 
 %% Black Litterman Constraints
 %Calculate returns and Covariance Matrix
-Ret = tick2ret(array_assets);
+Ret = price2ret(array_assets);
 CovMatrix = cov(Ret);
 
 %Building the views
@@ -278,31 +278,27 @@ histogram(XBL)
 portBL = Portfolio('NumAssets', N_assets, 'Name', 'MV with BL');
 portBL = setAssetMoments(portBL, muBL, CovMatrix.*covBL);
 portBL = setDefaultConstraints(portBL);
-wtsBL = estimateMaxSharpeRatio(portBL); % in the original code, here's Port instead of PortBL
+% find minimum variance portfolio
+pwgt_BL = estimateFrontier(portBL, N_assets);
+[pfBL_risk, pfBL_ret] = estimatePortMoments(portBL,pwgt_BL);
+[~, min_var_idx] = min(pfBL_risk);
+portfolioI = pwgt_BL(:,min_var_idx);
+% find max sharpe portfolio
+portfolioL = estimateMaxSharpeRatio(portBL); % in the original code, here's Port instead of PortBL
 
 %Plot -> here we can add the pie of all ports computed above
 figure()
-idx_BL = wtsBL > 0.001;
-pie(wtsBL(idx_BL), names_assets(idx_BL)); % A little messy, to adjust
+idx_BL = portfolioI > 0.001;
+pie(portfolioI(idx_BL), names_assets(idx_BL)); % A little messy, to adjust
 title(portBL.Name, 'Position', [-0.05, 1.6, 0]);
 %% Exercice 5: Mx diversified ptf & max entropy
 
 % set sector constraints
-% overall exposure to sector 'Consumer Discretionary' must be greater than 15%
 groupMatrix_F = (table_sector.Sector == "Financials")'; % estraggo il gruppo Financials 
 groupMatrix_I = (table_sector.Sector == "Industrials")'; % estraggo il gruppo Industrials
 lowerbounds = 0.001*groupMatrix_F + 0.005*groupMatrix_I;
-upperbounds = ones(length(101))-0.98*groupMatrix_F-0.99*groupMatrix_I;
-pConstrained2 = setBounds(pStandard,lowerbounds, upperbounds);
-
-% %% Compute the efficient frontier
-% pwgt_Constrained2 = estimateFrontier(pConstrained2, N_portfolios); % estimate frontier using 100 points
-% [pf_risk_Constrained2, pf_ret_Constrained2] = estimatePortMoments(pConstrained2, pwgt_Constrained2);% estimate moments of the frontier
-
-% %% Plot efficient frontier
-% figure;
-% plot(pf_risk_Constrained2, pf_ret_Constrained2, 'LineWidth', 2); % plot frontier
-% plot_legend.String{end} = "Efficient Frontier (Sector Constraints)";
+upperbounds = ones(length(N_assets),1)-0.98*groupMatrix_F-0.99*groupMatrix_I;
+%pConstrained2 = setBounds(pStandard,lowerbounds, upperbounds);
 
 %% Equally Weighted Ptf
 
@@ -320,11 +316,11 @@ x0 = zeros(N_assets,1);
 x0(1,1) = 1;
 options = optimoptions('fmincon','MaxFunctionEvaluations',1e5);
 w_RP = fmincon(@(x) mse_risk_contribution(x, LogRet_array, Target), x0, [], [], Aeq, beq, lb, ub, [], options);
-[relRC_rp, RC_rp, mVol_rp] = getRiskContribution(w_RP, LogRet_array);
+%[relRC_rp, RC_rp, mVol_rp] = getRiskContribution(w_RP, LogRet_array);
 
 %% Most Diversified portfolio
-DR_ew = getDiversificationRatio(wEW, LogRet_array);
-DR_rp = getDiversificationRatio(w_RP, LogRet_array);
+%DR_ew = getDiversificationRatio(wEW, LogRet_array);
+%DR_rp = getDiversificationRatio(w_RP, LogRet_array);
 %%  Maximizing of DR
 Aeq = ones(1,N_assets);
 beq = 1;
@@ -339,9 +335,9 @@ portfolioM = w_DR > 1e-3; % Chiedere all'Angelini se possiamo farlo
 portfolioM = portfolioM .* w_DR;
 %% Maximum Entropy portfolio
 % Weights
-EntropyEW = getEntropy(wEW);
-EntropyRP = getEntropy(w_RP);
-EntropyDR = getEntropy(w_DR);
+%EntropyEW = getEntropy(wEW);
+%EntropyRP = getEntropy(w_RP);
+%EntropyDR = getEntropy(w_DR);
 
 %% Optimization
 Aeq = ones(1,N_assets);
@@ -350,7 +346,6 @@ lb = lowerbounds;
 ub = upperbounds;
 x0 = zeros(N_assets,1);
 x0(1,1) = 1;
-w_MaxEntropy = fmincon(@(x) -getEntropy(x), x0, [], [], Aeq, beq, lb, ub, [], options);
 portfolioN = fmincon(@(x) -getEntropy(getVolContribution(x,LogRet_array)), x0, [], [], Aeq, beq, lb, ub, [], options);
 
 %% PCA
@@ -405,7 +400,7 @@ Aeq = ones(1,size(LogRet_array,2));
 beq = 1;
 
 nonlcon = @(x) freval(x,factorLoading,covarFactor,D);
-[w_opt, fval] = fmincon(func, x0, [], [], Aeq, beq, lb, ub,nonlcon, options);
+[portfolioP, fval] = fmincon(func, x0, [], [], Aeq, beq, lb, ub,nonlcon, options);
 
 %% 7 Maximum Expected Shortfall - modified Sharpe Ratio
 
@@ -420,7 +415,7 @@ ub = ones(1,size(LogRet_array,2));
 Aeq = ones(1,size(LogRet_array,2));
 beq = 1;
 
-[portfolioQ, fval] = fmincon(fun, x0, [], [], Aeq, beq, lb, ub);
+[portfolioQ, fval] = fmincon(fun, x0, [], [], Aeq, beq, lb, ub, [], options);
 
 %% Plot the efficient frontier
 
@@ -431,3 +426,112 @@ hold on
 pf_risk_opt = sqrt(portfolioQ'*CovMatRet*portfolioQ);
 pf_ret_opt = ExpLogRet*portfolioQ;
 plot(pf_risk_opt, pf_ret_opt, 'r.', 'MarkerSize', 10);
+
+%% 8. Performance Metrics 
+ret = array_assets(2:end,:)./array_assets(1:end-1,:);
+%Equity curve
+equityEW = cumprod(ret*wEW);
+%force the equity to start from the same value
+equityEW = 100.*equityEW/equityEW(1);
+%A
+equityA = cumprod(ret*portfolioA);
+equityA = 100.*equityA/equityA(1);
+%B
+equityB = cumprod(ret*portfolioB);
+equityB = 100.*equityB/equityB(1);
+%C
+equityC = cumprod(ret*portfolioC);
+equityC = 100.*equityC/equityC(1);
+%D
+equityD = cumprod(ret*portfolioD);
+equityD = 100.*equityD/equityD(1);
+%E
+equityE = cumprod(ret*portfolioE);
+equityE = 100.*equityE/equityE(1);
+%F
+equityF = cumprod(ret*portfolioF);
+equityF = 100.*equityF/equityF(1);
+%G
+equityG = cumprod(ret*portfolioG);
+equityG = 100.*equityG/equityG(1);
+%H
+equityH = cumprod(ret*portfolioH);
+equityH = 100.*equityH/equityH(1);
+%I
+equityI = cumprod(ret*portfolioI);
+equityI = 100.*equityI/equityI(1);
+%L
+equityL = cumprod(ret*portfolioL);
+equityL = 100.*equityL/equityL(1);
+%M
+equityM = cumprod(ret*portfolioM);
+equityM = 100.*equityM/equityM(1);
+%N
+equityN = cumprod(ret*portfolioN);
+equityN = 100.*equityN/equityN(1);
+%P
+equityP = cumprod(ret*portfolioP);
+equityP = 100.*equityP/equityP(1);
+%Q
+equityQ = cumprod(ret*portfolioQ);
+equityQ = 100.*equityQ/equityQ(1);
+
+% Plot
+dates_ = subsample.Time;
+f = figure();
+plot(dates_(2:end,1), equityEW, 'LineWidth', 3)
+hold on
+plot(dates_(2:end,1), equityA, 'LineWidth', 3)
+plot(dates_(2:end,1), equityB, 'LineWidth', 3)
+plot(dates_(2:end,1), equityC, 'LineWidth', 3)
+plot(dates_(2:end,1), equityD, 'LineWidth', 3)
+plot(dates_(2:end,1), equityE, 'LineWidth', 3)
+plot(dates_(2:end,1), equityF, 'LineWidth', 3)
+plot(dates_(2:end,1), equityG, 'LineWidth', 3)
+plot(dates_(2:end,1), equityH, 'LineWidth', 3)
+plot(dates_(2:end,1), equityI, 'LineWidth', 3)
+plot(dates_(2:end,1), equityL, 'LineWidth', 3)
+plot(dates_(2:end,1), equityM, 'LineWidth', 3)
+plot(dates_(2:end,1), equityN, 'LineWidth', 3)
+plot(dates_(2:end,1), equityP, 'LineWidth', 3)
+plot(dates_(2:end,1), equityQ, 'LineWidth', 3)
+legend('Equally Weighted Portfolio', 'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q')
+xlabel('Date')
+ylabel('Equity')
+
+[annRet_A, annVol_A, Sharpe_A, MaxDD_A, Calmar_A] = getPerformanceMetrics(equityA);
+[annRet_B, annVol_B, Sharpe_B, MaxDD_B, Calmar_B] = getPerformanceMetrics(equityB);
+[annRet_C, annVol_C, Sharpe_C, MaxDD_C, Calmar_C] = getPerformanceMetrics(equityC);
+[annRet_D, annVol_D, Sharpe_D, MaxDD_D, Calmar_D] = getPerformanceMetrics(equityD);
+[annRet_E, annVol_E, Sharpe_E, MaxDD_E, Calmar_E] = getPerformanceMetrics(equityE);
+[annRet_F, annVol_F, Sharpe_F, MaxDD_F, Calmar_F] = getPerformanceMetrics(equityF);
+[annRet_G, annVol_G, Sharpe_G, MaxDD_G, Calmar_G] = getPerformanceMetrics(equityG);
+[annRet_H, annVol_H, Sharpe_H, MaxDD_H, Calmar_H] = getPerformanceMetrics(equityH);
+[annRet_I, annVol_I, Sharpe_I, MaxDD_I, Calmar_I] = getPerformanceMetrics(equityI);
+[annRet_L, annVol_L, Sharpe_L, MaxDD_L, Calmar_L] = getPerformanceMetrics(equityL);
+[annRet_M, annVol_M, Sharpe_M, MaxDD_M, Calmar_M] = getPerformanceMetrics(equityM);
+[annRet_N, annVol_N, Sharpe_N, MaxDD_N, Calmar_N] = getPerformanceMetrics(equityN);
+[annRet_P, annVol_P, Sharpe_P, MaxDD_P, Calmar_P] = getPerformanceMetrics(equityP);
+[annRet_Q, annVol_Q, Sharpe_Q, MaxDD_Q, Calmar_Q] = getPerformanceMetrics(equityQ);
+[annRet_ew, annVol_ew, Sharpe_ew, MaxDD_ew, Calmar_ew] = getPerformanceMetrics(equityEW);
+
+metricsEW = [annRet_ew; annVol_ew; Sharpe_ew; MaxDD_ew; Calmar_ew];
+metricsA = [annRet_A; annVol_A; Sharpe_A; MaxDD_A; Calmar_A];
+metricsB = [annRet_B; annVol_B; Sharpe_B; MaxDD_B; Calmar_B];
+metricsC = [annRet_C; annVol_C; Sharpe_C; MaxDD_C; Calmar_C];
+metricsD = [annRet_D; annVol_D; Sharpe_D; MaxDD_D; Calmar_D];
+metricsE = [annRet_E; annVol_E; Sharpe_E; MaxDD_E; Calmar_E];
+metricsF = [annRet_F; annVol_F; Sharpe_F; MaxDD_F; Calmar_F];
+metricsG = [annRet_G; annVol_G; Sharpe_G; MaxDD_G; Calmar_G];
+metricsH = [annRet_H; annVol_H; Sharpe_H; MaxDD_H; Calmar_H];
+metricsI = [annRet_I; annVol_I; Sharpe_I; MaxDD_I; Calmar_I];
+metricsL = [annRet_L; annVol_L; Sharpe_L; MaxDD_L; Calmar_L];
+metricsM = [annRet_M; annVol_M; Sharpe_M; MaxDD_M; Calmar_M];
+metricsN = [annRet_N; annVol_N; Sharpe_N; MaxDD_N; Calmar_N];
+metricsP = [annRet_P; annVol_P; Sharpe_P; MaxDD_P; Calmar_P];
+metricsQ = [annRet_Q; annVol_Q; Sharpe_Q; MaxDD_Q; Calmar_Q];
+
+metrics = ["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio"];
+table(metrics, metricsEW,metricsA, metricsB,metricsC,metricsD,metricsE,metricsF,metricsG,metricsH,metricsI,metricsL,metricsM,metricsN,metricsP,metricsQ, ...
+    'VariableNames', ["Metrics","EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'])
+
