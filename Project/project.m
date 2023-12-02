@@ -26,14 +26,14 @@ timetable_prices = array2timetable(values, 'RowTimes', dates, 'VariableNames', n
 
 %% Part A
 % Use prices from 11/05/2021 to 11/05/2022
-start_date = datetime('11/05/2021', 'InputFormat', 'dd/MM/yyyy');
-end_date = datetime('11/05/2022', 'InputFormat', 'dd/MM/yyyy');
-dates_range = timerange(start_date, end_date, "closed"); % range of dates
-subsample = timetable_prices(dates_range, :);
-array_assets = subsample.Variables; % array of prices
-LogRet_array = log(array_assets(2:end, :)./array_assets(1:end-1, :)); % array of log returns
-ExpLogRet = mean(LogRet_array); % expected log returns
-CovMatRet = cov(LogRet_array); % covariance matrix of log returns
+start_date_A = datetime('11/05/2021', 'InputFormat', 'dd/MM/yyyy');
+end_date_A = datetime('11/05/2022', 'InputFormat', 'dd/MM/yyyy');
+dates_range_A = timerange(start_date_A, end_date_A, "closed"); % range of dates
+subsample_A = timetable_prices(dates_range_A, :);
+array_assets_A = subsample_A.Variables; % array of prices
+LogRet_array_A = log(array_assets_A(2:end, :)./array_assets_A(1:end-1, :)); % array of log returns
+ExpLogRet_A = mean(LogRet_array_A); % expected log returns
+CovMatRet_A = cov(LogRet_array_A); % covariance matrix of log returns
 
 %% 1
 % Compute the efficient frontier under the standard constraints, i.e. 
@@ -41,7 +41,7 @@ CovMatRet = cov(LogRet_array); % covariance matrix of log returns
 %% Compute the efficient frontier
 
 pStandard = Portfolio('AssetList', names_assets); % create portfolio object
-pStandard = setAssetMoments(pStandard, ExpLogRet, CovMatRet); % set moments of the portfolio
+pStandard = setAssetMoments(pStandard, ExpLogRet_A, CovMatRet_A); % set moments of the portfolio
 
 % use standard constraints: sum(w) = 1, 0 <= w_i <= 1
 % all weights sum  to 1, no shorting, 100% invested
@@ -145,7 +145,7 @@ pf_ret_sim_constrained = zeros(N_portfolios, N_sim);
 for n = 1:N_sim
     % sample returns as multivariate normal of mean and covariance of the
     % sample
-    R = mvnrnd(ExpLogRet, CovMatRet, length(LogRet_array));
+    R = mvnrnd(ExpLogRet_A, CovMatRet_A, length(LogRet_array_A));
     % create portfolio objects
     pSimulationStandard = setAssetMoments(pStandard, mean(R), cov(R));
     pSimulationConstrained = setAssetMoments(pConstrained, mean(R), cov(R));
@@ -216,7 +216,7 @@ plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Sector Constra
 
 %% Black Litterman Constraints
 %Calculate returns and Covariance Matrix
-Ret = price2ret(array_assets);
+Ret = price2ret(array_assets_A);
 CovMatrix = cov(Ret);
 
 %Building the views
@@ -302,8 +302,8 @@ upperbounds = ones(length(N_assets),1)-0.98*groupMatrix_F-0.99*groupMatrix_I;
 
 %% Equally Weighted Ptf
 
-wEW = 1/size(LogRet_array,2)*ones(N_assets,1);
-RetPtfEW = wEW'*ExpLogRet';
+wEW = 1/size(LogRet_array_A,2)*ones(N_assets,1);
+RetPtfEW = wEW'*ExpLogRet_A';
 VolaPtfEW = sqrt(wEW'*CovMatrix*wEW);
 
 %%  Risk Parity
@@ -315,7 +315,7 @@ ub = upperbounds;
 x0 = zeros(N_assets,1);
 x0(1,1) = 1;
 options = optimoptions('fmincon','MaxFunctionEvaluations',1e5);
-w_RP = fmincon(@(x) mse_risk_contribution(x, LogRet_array, Target), x0, [], [], Aeq, beq, lb, ub, [], options);
+w_RP = fmincon(@(x) mse_risk_contribution(x, LogRet_array_A, Target), x0, [], [], Aeq, beq, lb, ub, [], options);
 %[relRC_rp, RC_rp, mVol_rp] = getRiskContribution(w_RP, LogRet_array);
 
 %% Most Diversified portfolio
@@ -329,7 +329,7 @@ ub = upperbounds;
 x0 = zeros(N_assets,1);
 x0(1,1) = 1;
 
-[w_DR, fval] = fmincon(@(x) -getDiversificationRatio(x, LogRet_array), x0, [], [], Aeq, beq, lb, ub, [], options);
+[w_DR, fval] = fmincon(@(x) -getDiversificationRatio(x, LogRet_array_A), x0, [], [], Aeq, beq, lb, ub, [], options);
 MaxDR = -fval; 
 portfolioM = w_DR > 1e-3; % Chiedere all'Angelini se possiamo farlo
 portfolioM = portfolioM .* w_DR;
@@ -346,11 +346,11 @@ lb = lowerbounds;
 ub = upperbounds;
 x0 = zeros(N_assets,1);
 x0(1,1) = 1;
-portfolioN = fmincon(@(x) -getEntropy(getVolContribution(x,LogRet_array)), x0, [], [], Aeq, beq, lb, ub, [], options);
+portfolioN = fmincon(@(x) -getEntropy(getVolContribution(x,LogRet_array_A)), x0, [], [], Aeq, beq, lb, ub, [], options);
 
 %% PCA
 k = 10; 
-[factorLoading, factorRetn, latent] = pca(LogRet_array, 'NumComponents', k);
+[factorLoading, factorRetn, latent] = pca(LogRet_array_A, 'NumComponents', k);
 
 ToTVar = sum(latent);
 ExplainedVar = latent(1:k)/ToTVar;
@@ -382,21 +382,21 @@ ylabel('Percentage of Explained Variances')
 %% 
 %reconstruct asset returns
 covarFactor = cov(factorRetn);
-reconReturn = factorRetn*factorLoading' + ExpLogRet;
-unexplainedRetn = LogRet_array-reconReturn;
+reconReturn = factorRetn*factorLoading' + ExpLogRet_A;
+unexplainedRetn = LogRet_array_A-reconReturn;
 
 unexplainedCovar = diag(cov(unexplainedRetn));
 D = diag(unexplainedCovar);
 
 covarAsset = factorLoading*covarFactor*factorLoading'+D;
 %% Optimization return
-func = @(x) -ExpLogRet*x;
+func = @(x) -ExpLogRet_A*x;
 
-x0 = rand(size(LogRet_array,2),1);
+x0 = rand(size(LogRet_array_A,2),1);
 x0 = x0./sum(x0);
-lb = zeros(1,size(LogRet_array,2));
-ub = ones(1,size(LogRet_array,2));
-Aeq = ones(1,size(LogRet_array,2));
+lb = zeros(1,size(LogRet_array_A,2));
+ub = ones(1,size(LogRet_array_A,2));
+Aeq = ones(1,size(LogRet_array_A,2));
 beq = 1;
 
 nonlcon = @(x) freval(x,factorLoading,covarFactor,D);
@@ -407,12 +407,12 @@ nonlcon = @(x) freval(x,factorLoading,covarFactor,D);
 % Compute the VaR and ES of the assets
 
 % ES computed with risk_free_rate = 0 and confidence_level = 0.05
-fun = @(x) -modified_Sharpe(x, LogRet_array, 0, 0.05);
-x0 = rand(size(LogRet_array,2),1);
+fun = @(x) -modified_Sharpe(x, LogRet_array_A, 0, 0.05);
+x0 = rand(size(LogRet_array_A,2),1);
 x0 = x0./sum(x0);
-lb = zeros(1,size(LogRet_array,2));
-ub = ones(1,size(LogRet_array,2));
-Aeq = ones(1,size(LogRet_array,2));
+lb = zeros(1,size(LogRet_array_A,2));
+ub = ones(1,size(LogRet_array_A,2));
+Aeq = ones(1,size(LogRet_array_A,2));
 beq = 1;
 
 [portfolioQ, fval] = fmincon(fun, x0, [], [], Aeq, beq, lb, ub, [], options);
@@ -423,115 +423,83 @@ figure
 plot(pf_risk, pf_ret, 'LineWidth', 2); % plot frontier
 hold on
 % plot the max modified sharpe ratio portfolio at 5% confidence level
-pf_risk_opt = sqrt(portfolioQ'*CovMatRet*portfolioQ);
-pf_ret_opt = ExpLogRet*portfolioQ;
+pf_risk_opt = sqrt(portfolioQ'*CovMatRet_A*portfolioQ);
+pf_ret_opt = ExpLogRet_A*portfolioQ;
 plot(pf_risk_opt, pf_ret_opt, 'r.', 'MarkerSize', 10);
 
 %% 8. Performance Metrics 
-ret = array_assets(2:end,:)./array_assets(1:end-1,:);
-%Equity curve
-equityEW = cumprod(ret*wEW);
-%force the equity to start from the same value
-equityEW = 100.*equityEW/equityEW(1);
-%A
-equityA = cumprod(ret*portfolioA);
-equityA = 100.*equityA/equityA(1);
-%B
-equityB = cumprod(ret*portfolioB);
-equityB = 100.*equityB/equityB(1);
-%C
-equityC = cumprod(ret*portfolioC);
-equityC = 100.*equityC/equityC(1);
-%D
-equityD = cumprod(ret*portfolioD);
-equityD = 100.*equityD/equityD(1);
-%E
-equityE = cumprod(ret*portfolioE);
-equityE = 100.*equityE/equityE(1);
-%F
-equityF = cumprod(ret*portfolioF);
-equityF = 100.*equityF/equityF(1);
-%G
-equityG = cumprod(ret*portfolioG);
-equityG = 100.*equityG/equityG(1);
-%H
-equityH = cumprod(ret*portfolioH);
-equityH = 100.*equityH/equityH(1);
-%I
-equityI = cumprod(ret*portfolioI);
-equityI = 100.*equityI/equityI(1);
-%L
-equityL = cumprod(ret*portfolioL);
-equityL = 100.*equityL/equityL(1);
-%M
-equityM = cumprod(ret*portfolioM);
-equityM = 100.*equityM/equityM(1);
-%N
-equityN = cumprod(ret*portfolioN);
-equityN = 100.*equityN/equityN(1);
-%P
-equityP = cumprod(ret*portfolioP);
-equityP = 100.*equityP/equityP(1);
-%Q
-equityQ = cumprod(ret*portfolioQ);
-equityQ = 100.*equityQ/equityQ(1);
 
+ret = array_assets_A(2:end,:)./array_assets_A(1:end-1,:);
+
+Portfolios = [wEW, portfolioA, portfolioB, portfolioC, portfolioD, portfolioE, portfolioF, portfolioG, portfolioH, portfolioI, portfolioL, portfolioM, portfolioN, portfolioP, portfolioQ];
+n_portfolios = size(Portfolios,2);
+equity = [] %non riesco ad assegnare dimenzione pre loop
+%Equity curve
+for i = 1:n_portfolios
+equity(:,i) = cumprod(ret*Portfolios(:,i));
+equity(:,i) = 100.*equity(:,i)/equity(1,i);%force the equity to start from the same value
+end
 % Plot
-dates_ = subsample.Time;
+dates_ = subsample_A.Time;
 f = figure();
-plot(dates_(2:end,1), equityEW, 'LineWidth', 3)
 hold on
-plot(dates_(2:end,1), equityA, 'LineWidth', 3)
-plot(dates_(2:end,1), equityB, 'LineWidth', 3)
-plot(dates_(2:end,1), equityC, 'LineWidth', 3)
-plot(dates_(2:end,1), equityD, 'LineWidth', 3)
-plot(dates_(2:end,1), equityE, 'LineWidth', 3)
-plot(dates_(2:end,1), equityF, 'LineWidth', 3)
-plot(dates_(2:end,1), equityG, 'LineWidth', 3)
-plot(dates_(2:end,1), equityH, 'LineWidth', 3)
-plot(dates_(2:end,1), equityI, 'LineWidth', 3)
-plot(dates_(2:end,1), equityL, 'LineWidth', 3)
-plot(dates_(2:end,1), equityM, 'LineWidth', 3)
-plot(dates_(2:end,1), equityN, 'LineWidth', 3)
-plot(dates_(2:end,1), equityP, 'LineWidth', 3)
-plot(dates_(2:end,1), equityQ, 'LineWidth', 3)
+for i = 1:n_portfolios
+plot(dates_(2:end,1), equity(:,i), 'LineWidth', 3)
 legend('Equally Weighted Portfolio', 'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q')
 xlabel('Date')
 ylabel('Equity')
+end
+%
+annRet = zeros(1,n_portfolios); annVol = zeros(1,n_portfolios); Sharpe = zeros(1,n_portfolios); MaxDD = zeros(1,n_portfolios); Calmar = zeros(1,n_portfolios); %preallocation for faster compiling
+metrics = []; %can't do it here tho
+for i = 1:n_portfolios
+[annRet(:,i), annVol(:,i), Sharpe(:,i), MaxDD(:,i), Calmar(:,i)] = getPerformanceMetrics(equity(:,i));
+metrics(:,i) = [annRet(:,i); annVol(:,i); Sharpe(:,i); MaxDD(:,i); Calmar(:,i)];
+end
+metrics_table = array2table(metrics,'VariableNames',["EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'],'RowNames',["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio"])
 
-[annRet_A, annVol_A, Sharpe_A, MaxDD_A, Calmar_A] = getPerformanceMetrics(equityA);
-[annRet_B, annVol_B, Sharpe_B, MaxDD_B, Calmar_B] = getPerformanceMetrics(equityB);
-[annRet_C, annVol_C, Sharpe_C, MaxDD_C, Calmar_C] = getPerformanceMetrics(equityC);
-[annRet_D, annVol_D, Sharpe_D, MaxDD_D, Calmar_D] = getPerformanceMetrics(equityD);
-[annRet_E, annVol_E, Sharpe_E, MaxDD_E, Calmar_E] = getPerformanceMetrics(equityE);
-[annRet_F, annVol_F, Sharpe_F, MaxDD_F, Calmar_F] = getPerformanceMetrics(equityF);
-[annRet_G, annVol_G, Sharpe_G, MaxDD_G, Calmar_G] = getPerformanceMetrics(equityG);
-[annRet_H, annVol_H, Sharpe_H, MaxDD_H, Calmar_H] = getPerformanceMetrics(equityH);
-[annRet_I, annVol_I, Sharpe_I, MaxDD_I, Calmar_I] = getPerformanceMetrics(equityI);
-[annRet_L, annVol_L, Sharpe_L, MaxDD_L, Calmar_L] = getPerformanceMetrics(equityL);
-[annRet_M, annVol_M, Sharpe_M, MaxDD_M, Calmar_M] = getPerformanceMetrics(equityM);
-[annRet_N, annVol_N, Sharpe_N, MaxDD_N, Calmar_N] = getPerformanceMetrics(equityN);
-[annRet_P, annVol_P, Sharpe_P, MaxDD_P, Calmar_P] = getPerformanceMetrics(equityP);
-[annRet_Q, annVol_Q, Sharpe_Q, MaxDD_Q, Calmar_Q] = getPerformanceMetrics(equityQ);
-[annRet_ew, annVol_ew, Sharpe_ew, MaxDD_ew, Calmar_ew] = getPerformanceMetrics(equityEW);
+% %% check if correct:
+% check = zeros (5,1)
+% for j=1:5
+%         if metrics(j,1)== metricsEW(j,1)
+%        check(j,1) = 1;
+% portfolioF
+%         end
+% end
+% check
+%% Part B
+% Use prices from 12/05/2022 to 12/05/2023 to evaluate already computed
+% portfolios
+start_date_B = datetime('12/05/2022', 'InputFormat', 'dd/MM/yyyy');
+end_date_B = datetime('12/05/2023', 'InputFormat', 'dd/MM/yyyy');
+dates_range_B = timerange(start_date_B, end_date_B, "closed");
+subsample_B = timetable_prices(dates_range_B, :);
+array_assets_B = subsample_B.Variables; % array of prices
 
-metricsEW = [annRet_ew; annVol_ew; Sharpe_ew; MaxDD_ew; Calmar_ew];
-metricsA = [annRet_A; annVol_A; Sharpe_A; MaxDD_A; Calmar_A];
-metricsB = [annRet_B; annVol_B; Sharpe_B; MaxDD_B; Calmar_B];
-metricsC = [annRet_C; annVol_C; Sharpe_C; MaxDD_C; Calmar_C];
-metricsD = [annRet_D; annVol_D; Sharpe_D; MaxDD_D; Calmar_D];
-metricsE = [annRet_E; annVol_E; Sharpe_E; MaxDD_E; Calmar_E];
-metricsF = [annRet_F; annVol_F; Sharpe_F; MaxDD_F; Calmar_F];
-metricsG = [annRet_G; annVol_G; Sharpe_G; MaxDD_G; Calmar_G];
-metricsH = [annRet_H; annVol_H; Sharpe_H; MaxDD_H; Calmar_H];
-metricsI = [annRet_I; annVol_I; Sharpe_I; MaxDD_I; Calmar_I];
-metricsL = [annRet_L; annVol_L; Sharpe_L; MaxDD_L; Calmar_L];
-metricsM = [annRet_M; annVol_M; Sharpe_M; MaxDD_M; Calmar_M];
-metricsN = [annRet_N; annVol_N; Sharpe_N; MaxDD_N; Calmar_N];
-metricsP = [annRet_P; annVol_P; Sharpe_P; MaxDD_P; Calmar_P];
-metricsQ = [annRet_Q; annVol_Q; Sharpe_Q; MaxDD_Q; Calmar_Q];
+ret = array_assets_B(2:end,:)./array_assets_B(1:end-1,:);
 
-metrics = ["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio"];
-table(metrics, metricsEW,metricsA, metricsB,metricsC,metricsD,metricsE,metricsF,metricsG,metricsH,metricsI,metricsL,metricsM,metricsN,metricsP,metricsQ, ...
-    'VariableNames', ["Metrics","EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'])
+equity = [] %non riesco ad assegnare dimenzione pre loop
 
+%Equity curve
+for i = 1:n_portfolios
+equity(:,i) = cumprod(ret*Portfolios(:,i));
+equity(:,i) = 100.*equity(:,i)/equity(1,i);%force the equity to start from the same value
+end
+% Plot
+dates_ = subsample_B.Time;
+f = figure();
+hold on
+for i = 1:n_portfolios
+plot(dates_(2:end,1), equity(:,i), 'LineWidth', 3)
+legend('Equally Weighted Portfolio', 'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q')
+xlabel('Date')
+ylabel('Equity')
+end
+%
+annRet = zeros(1,n_portfolios); annVol = zeros(1,n_portfolios); Sharpe = zeros(1,n_portfolios); MaxDD = zeros(1,n_portfolios); Calmar = zeros(1,n_portfolios); %preallocation for faster compiling
+metrics = []; %can't do it here tho
+for i = 1:n_portfolios
+[annRet(:,i), annVol(:,i), Sharpe(:,i), MaxDD(:,i), Calmar(:,i)] = getPerformanceMetrics(equity(:,i));
+metrics(:,i) = [annRet(:,i); annVol(:,i); Sharpe(:,i); MaxDD(:,i); Calmar(:,i)];
+end
+metrics_table = array2table(metrics,'VariableNames',["EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'],'RowNames',["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio"])
