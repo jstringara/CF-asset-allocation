@@ -433,7 +433,7 @@ ret = array_assets_A(2:end,:)./array_assets_A(1:end-1,:);
 
 Portfolios = [wEW, portfolioA, portfolioB, portfolioC, portfolioD, portfolioE, portfolioF, portfolioG, portfolioH, portfolioI, portfolioL, portfolioM, portfolioN, portfolioP, portfolioQ];
 n_portfolios = size(Portfolios,2);
-equity = [] ;
+equity = [] %non riesco ad assegnare dimenzione pre loop
 %Equity curve
 for i = 1:n_portfolios
 equity(:,i) = cumprod(ret*Portfolios(:,i));
@@ -452,14 +452,22 @@ ylabel('Equity')
 end
 %
 annRet = zeros(1,n_portfolios); annVol = zeros(1,n_portfolios); Sharpe = zeros(1,n_portfolios); MaxDD = zeros(1,n_portfolios); Calmar = zeros(1,n_portfolios); %preallocation for faster compiling
-metrics = []; 
+metrics1 = []; %can't do it here tho
 for i = 1:n_portfolios
 [annRet(:,i), annVol(:,i), Sharpe(:,i), MaxDD(:,i), Calmar(:,i)] = getPerformanceMetrics(equity(:,i));
-DivRatio(:,i) = getDiversificationRatio(Portfolios(:,i),ret);
-metrics(:,i) = [annRet(:,i); annVol(:,i); Sharpe(:,i); MaxDD(:,i); Calmar(:,i);DivRatio(:,i)];
+metrics1(:,i) = [annRet(:,i); annVol(:,i); Sharpe(:,i); MaxDD(:,i); Calmar(:,i)];
 end
-metrics_table = array2table(metrics,'VariableNames',["EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'],'RowNames',["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio";"Diversification Ratio"])
+metrics_table = array2table(metrics,'VariableNames',["EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'],'RowNames',["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio"])
 
+% %% check if correct:
+% check = zeros (5,1)
+% for j=1:5
+%         if metrics(j,1)== metricsEW(j,1)
+%        check(j,1) = 1;
+% portfolioF
+%         end
+% end
+% check
 %% Part B
 % Use prices from 12/05/2022 to 12/05/2023 to evaluate already computed
 % portfolios
@@ -468,8 +476,10 @@ end_date_B = datetime('12/05/2023', 'InputFormat', 'dd/MM/yyyy');
 dates_range_B = timerange(start_date_B, end_date_B, "closed");
 subsample_B = timetable_prices(dates_range_B, :);
 array_assets_B = subsample_B.Variables; % array of prices
+
 ret = array_assets_B(2:end,:)./array_assets_B(1:end-1,:);
-equity = [] 
+
+equity = [] %non riesco ad assegnare dimenzione pre loop
 
 %Equity curve
 for i = 1:n_portfolios
@@ -479,7 +489,7 @@ end
 % Plot
 dates_ = subsample_B.Time;
 f = figure('Name','Equity second year');
-title('Equity first year')
+title('Equity second year')
 hold on
 for i = 1:n_portfolios
 plot(dates_(2:end,1), equity(:,i), 'LineWidth', 3)
@@ -489,10 +499,9 @@ ylabel('Equity')
 end
 %
 annRet = zeros(1,n_portfolios); annVol = zeros(1,n_portfolios); Sharpe = zeros(1,n_portfolios); MaxDD = zeros(1,n_portfolios); Calmar = zeros(1,n_portfolios); %preallocation for faster compiling
-metrics = []; 
+metrics2 = []; %can't do it here tho
 for i = 1:n_portfolios
 [annRet(:,i), annVol(:,i), Sharpe(:,i), MaxDD(:,i), Calmar(:,i)] = getPerformanceMetrics(equity(:,i));
-DivRatio(:,i) = getDiversificationRatio(Portfolios(:,i),ret);
-metrics(:,i) = [annRet(:,i); annVol(:,i); Sharpe(:,i); MaxDD(:,i); Calmar(:,i);DivRatio(:,i)];
+metrics2(:,i) = [annRet(:,i); annVol(:,i); Sharpe(:,i); MaxDD(:,i); Calmar(:,i)];
 end
-metrics_table = array2table(metrics,'VariableNames',["EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'],'RowNames',["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio";"Diversification Ratio"])
+metrics_table = array2table(metrics,'VariableNames',["EW",'A', 'B', 'C', 'D','E','F','G','H','I','L','M','N','P','Q'],'RowNames',["AnnRet";"AnnVola";"SharpeRatio"; "Max DD";"CalmarRatio"])
