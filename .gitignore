@@ -1,3 +1,4 @@
 CF-asset-allocation.code-workspace
 Project/matlabInVSCodeVariableInfo.csv
 *.asv # ignore all asv files
+venv/
