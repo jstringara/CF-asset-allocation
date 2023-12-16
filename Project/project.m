@@ -286,6 +286,14 @@ portfolioI = pwgt_BL(:,min_var_idx);
 % find max sharpe portfolio
 portfolioL = estimateMaxSharpeRatio(portBL); % in the original code, here's Port instead of PortBL
 
+%Plot Frontier
+figure; % create new figure
+title('Portfolio Frontier with Black-Litterman Model')
+plot_legend = legend('Location', 'best'); % add legend and keep its handle
+hold on
+plotFrontier(portBL)
+plot_legend.String{end} = "Black-Litterman Frontier";
+
 %Plot -> here we can add the pie of all ports computed above
 figure()
 idx_BL = portfolioI > 0.001;
