@@ -9,6 +9,9 @@ close all
 clc
 warning('off', 'all');
 
+% add the functions to the path
+addpath('functions/');
+
 % load data as tables
 data_dir = "data/";
 table_prices = readtable(data_dir + "prices_fin.xlsx");
