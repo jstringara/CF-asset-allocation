@@ -34,7 +34,9 @@ end_date_A = datetime('11/05/2022', 'InputFormat', 'dd/MM/yyyy');
 dates_range_A = timerange(start_date_A, end_date_A, "closed"); % range of dates
 subsample_A = timetable_prices(dates_range_A, :);
 array_assets_A = subsample_A.Variables; % array of prices
+Ret_array_A = array_assets_A(2:end, :)./array_assets_A(1:end-1, :)-1;
 LogRet_array_A = log(array_assets_A(2:end, :)./array_assets_A(1:end-1, :)); % array of log returns
+ExpRet_array_A = mean(Ret_array_A);
 ExpLogRet_A = mean(LogRet_array_A); % expected log returns
 CovMatRet_A = cov(LogRet_array_A); % covariance matrix of log returns
 
@@ -219,7 +221,7 @@ plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Sector Constra
 
 %% Black Litterman Constraints
 %Calculate returns and Covariance Matrix
-Ret = price2ret(array_assets_A);
+Ret = Ret_array_A;
 CovMatrix = cov(Ret);
 
 %Building the views
