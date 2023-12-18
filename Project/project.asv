@@ -287,8 +287,7 @@ pwgt_BL = estimateFrontier(portBL, N_assets);
 [~, min_var_idx] = min(pfBL_risk);
 portfolioI = pwgt_BL(:,min_var_idx);
 % find max sharpe portfolio
-[~, max_sharpe_idx_BL] = max(pfBL_ret./pfBL_risk); % in the original code, here's Port instead of PortBL
-portfolioL = pwgt_BL(:,max_sharpe_idx_BL);
+[~,]; % in the original code, here's Port instead of PortBL
 
 %Plot Frontier
 figure; % create new figure
