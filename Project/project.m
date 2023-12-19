@@ -36,7 +36,7 @@ subsample_A = timetable_prices(dates_range_A, :);
 array_assets_A = subsample_A.Variables; % array of prices
 Ret_array_A = array_assets_A(2:end, :)./array_assets_A(1:end-1, :)-1;
 LogRet_array_A = log(array_assets_A(2:end, :)./array_assets_A(1:end-1, :)); % array of log returns
-ExpRet_array_A = mean(Ret_array_A);
+ExpRet_A = mean(Ret_array_A);
 ExpLogRet_A = mean(LogRet_array_A); % expected log returns
 CovMatRet_A = cov(LogRet_array_A); % covariance matrix of log returns
 
@@ -221,8 +221,9 @@ plot_legend.String{end} = "Robust Maximum Sharpe Ratio Portfolio (Sector Constra
 
 %% Black Litterman Constraints
 %Calculate returns and Covariance Matrix
-Ret = Ret_array_A;
+Ret = tick2ret(array_assets_A);
 CovMatrix = cov(Ret);
+
 
 %Building the views
 tau = 1 / length(Ret);
@@ -235,14 +236,17 @@ Omega = zeros(v);
 P(1, (table_sector.Sector == "Consumer Staples")') = 1;
 q(1) = 0.07;
 
+
 %View2: companies belonging to the sector “Healthcare” will have anannual return of 3%
 P(2,(table_sector.Sector == "Health Care")') = 1;
 q(2) = 0.03;
+
 
 %View3: companies belonging to the sector "Communication Services" will outperform the companies belonging to the sector “Utilities” of 4%
 P(3, (table_sector.Sector == "Communication Services")') = 1;
 P(3, (table_sector.Sector == "Utilities")') = -1;
 q(3) = 0.04;
+
 
 %Compute Omega
 Omega(1,1) = tau.*P(1,:)*CovMatrix*P(1,:)';
@@ -260,10 +264,10 @@ X_views = mvnrnd(q, Omega, 750);
 histogram(X_views(:,1))
 
 %Market implied return
-wMkt = cap/sum(cap); %?
+wMkt = cap/sum(cap); 
 lambda = 1.2; % Assumption on risk propensity of the investor 
 mu_mkt = lambda.*CovMatrix*wMkt;
-C = tau.*CovMatrix; 
+C = tau*CovMatrix; 
 
 %Plot prior distribution
 X = mvnrnd(mu_mkt,C,750);
@@ -271,7 +275,7 @@ histogram(X(:,1))
 
 %Black Litterman
 muBL = inv(inv(C)+ P'*inv(Omega)*P)*(P'*inv(Omega)*q + inv(C)*mu_mkt);
-covBL = inv(P'*inv(Omega)*P + inv(C));
+covBL = inv(P'*(Omega\P) + inv(C));
 table(names_assets', mu_mkt*252, muBL*252, 'VariableNames', ["Asset Names", "Prior Belief of Exp Ret", "BL ExpRet"])
 
 % Plot Distribution
@@ -280,7 +284,7 @@ XBL = mvnrnd(muBL, covBL, 200);
 histogram(XBL)
 
 % Black Litterman Portfolio
-portBL = Portfolio('NumAssets', N_assets, 'Name', 'MV with BL');
+portBL = Portfolio('NumAssets', N_assets);
 portBL = setAssetMoments(portBL, muBL, CovMatrix + covBL);
 portBL = setDefaultConstraints(portBL);
 % find minimum variance portfolio
@@ -298,6 +302,9 @@ title('Portfolio Frontier with Black-Litterman Model')
 plot_legend = legend('Location', 'best'); % add legend and keep its handle
 hold on
 plotFrontier(portBL)
+hold on
+plot(pfBL_risk(min_var_idx),pfBL_ret(min_var_idx),'*','LineWidth',5)
+plot(pfBL_risk(max_sharpe_idx_BL),pfBL_ret(max_sharpe_idx_BL),'*', 'LineWidth', 5)
 plot_legend.String{end} = "Black-Litterman Frontier";
 
 %Plot -> here we can add the pie of all ports computed above
@@ -345,8 +352,10 @@ x0(1,1) = 1;
 
 [w_DR, fval] = fmincon(@(x) -getDiversificationRatio(x, LogRet_array_A), x0, [], [], Aeq, beq, lb, ub, [], options);
 MaxDR = -fval; 
-portfolioM = w_DR > 1e-3; % Chiedere all'Angelini se possiamo farlo
-portfolioM = portfolioM .* w_DR;
+%portfolioM = w_DR > 1e-3; % Chiedere all'Angelini se possiamo farlo
+portfolioM = w_DR;
+%TOGLIERE
+%portfolioM = portfolioM .* w_DR;
 %% Maximum Entropy portfolio
 % Weights
 %EntropyEW = getEntropy(wEW);
